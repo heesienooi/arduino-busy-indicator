@@ -1,0 +1,16 @@
+{
+  "name": "arduino-busy-indicator",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ease-component": "^1.0.0",
+    "johnny-five": "^0.15.0",
+    "temporal": "^0.6.0"
+  }
+}
