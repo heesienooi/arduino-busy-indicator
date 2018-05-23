@@ -1,98 +1,124 @@
-const fs = require('fs');
-const readline = require('readline');
-const {google} = require('googleapis');
+const moment = require('moment');
+const five = require("johnny-five");
+const board = new five.Board();
 
-// If modifying these scopes, delete credentials.json.
-const SCOPES = ['https://www.googleapis.com/auth/calendar.readonly'];
-const TOKEN_PATH = 'credentials.json';
+const SECOND = 1000;
+const MIN = SECOND * 60;
+const HOUR = MIN * 60;
 
-// Load client secrets from a local file.
-try {
-  const content = fs.readFileSync('client_secret.json');
-  authorize(JSON.parse(content), listEvents);
-} catch (err) {
-  return console.log('Error loading client secret file:', err);
+const DEFAULT_OPTIONS = {
+  autoSync: true,
+  workStartTime: '8:00',
+  workEndTime: '18:00',
 }
 
-/**
- * Create an OAuth2 client with the given credentials, and then execute the
- * given callback function.
- * @param {Object} credentials The authorization client credentials.
- * @param {function} callback The callback to call with the authorized client.
- * @return {function} if error in reading credentials.json asks for a new one.
- */
-function authorize(credentials, callback) {
-  const {client_secret, client_id, redirect_uris} = credentials.installed;
-  let token = {};
-  const oAuth2Client = new google.auth.OAuth2(
-      client_id, client_secret, redirect_uris[0]);
+const TEST_TIME_BLOCKS_DATA = [
+  {start: moment().add(5, 's'), end: moment().add(10, 's')},
+  {start: moment().add(15, 's'), end: moment().add(20, 's')}
+]
 
-  // Check if we have previously stored a token.
-  try {
-    token = fs.readFileSync(TOKEN_PATH);
-  } catch (err) {
-    return getAccessToken(oAuth2Client, callback);
+function inTimeRange(startTime, endTime) {
+  const now = moment();
+  const start = moment(startTime);
+  const end = moment(endTime);
+  if (now >= start && now < end) {
+    // Happening now
+    return true;
   }
-  oAuth2Client.setCredentials(JSON.parse(token));
-  callback(oAuth2Client);
+  return false;
 }
 
-/**
- * Get and store new token after prompting for user authorization, and then
- * execute the given callback with the authorized OAuth2 client.
- * @param {google.auth.OAuth2} oAuth2Client The OAuth2 client to get token for.
- * @param {getEventsCallback} callback The callback for the authorized client.
- */
-function getAccessToken(oAuth2Client, callback) {
-  const authUrl = oAuth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: SCOPES,
-  });
-  console.log('Authorize this app by visiting this url:', authUrl);
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-  rl.question('Enter the code from that page here: ', (code) => {
-    rl.close();
-    oAuth2Client.getToken(code, (err, token) => {
-      if (err) return callback(err);
-      oAuth2Client.setCredentials(token);
-      // Store the token to disk for later program executions
-      try {
-        fs.writeFileSync(TOKEN_PATH, JSON.stringify(token));
-        console.log('Token stored to', TOKEN_PATH);
-      } catch (err) {
-        console.error(err);
-      }
-      callback(oAuth2Client);
-    });
-  });
-}
+class MainController {
+  constructor(options) {
+    this.timeBlocks = TEST_TIME_BLOCKS_DATA;
+    this.activeTimeBlock = false;
+    this.led = new five.Led(13);
 
-/**
- * Lists the next 10 events on the user's primary calendar.
- * @param {google.auth.OAuth2} auth An authorized OAuth2 client.
- */
-function listEvents(auth) {
-  const calendar = google.calendar({version: 'v3', auth});
-  calendar.events.list({
-    calendarId: 'primary',
-    timeMin: (new Date()).toISOString(),
-    maxResults: 10,
-    singleEvents: true,
-    orderBy: 'startTime',
-  }, (err, {data}) => {
-    if (err) return console.log('The API returned an error: ' + err);
-    const events = data.items;
-    if (events.length) {
-      console.log('Upcoming 10 events:');
-      events.map((event, i) => {
-        const start = event.start.dateTime || event.start.date;
-        console.log(`${start} - ${event.summary}`);
-      });
-    } else {
-      console.log('No upcoming events found.');
+    if (options.autoSync) {
+      this.autoSync();
     }
-  });
+
+    // Starting the interval to setBusy
+    this.start();
+
+    // Fix `this` in the methods sharing with REPL
+    this.sync = this.sync.bind(this);
+    this.setBusy = this.setBusy.bind(this);
+    this.setFree = this.setFree.bind(this);
+  }
+
+  start() {
+    let seconds = 0;
+    setInterval(() => {
+      console.log(++seconds);
+
+      // Currently, timeblock activated
+      if (this.activeTimeBlock) {
+        const currentTimeBlock = this.timeBlocks[0];
+        if (inTimeRange(currentTimeBlock.start, currentTimeBlock.end)) {
+          // Now still within timeblock, return
+          return;
+        }
+        // When timeblock end
+        this.activeTimeBlock = false;
+        this.setFree();
+        // Remove the timeblock
+        this.timeBlocks.shift();
+      }
+
+      // No blocks to process, return
+      if (this.timeBlocks.length <= 0) return;
+
+      // Look for upcoming timeblock
+      const upcomingTimeBlock = this.timeBlocks[0];
+      console.log('upcomingTimeBlock', upcomingTimeBlock);
+      if (inTimeRange(upcomingTimeBlock.start, upcomingTimeBlock.end)) {
+        this.activeTimeBlock = true;
+        this.setBusy();
+      }
+    }, 1 * SECOND);
+  }
+
+  autoSync() {
+    this.sync();
+    setInterval(() => {
+      const now = moment();
+      const start = moment(this.options.workStartTime, 'HH:mm');
+      const end = moment(this.options.workEndTime, 'HH:mm');
+
+      // Only allow interval to fire sync inside working hours.
+      if (now >= start && now < end) {
+        this.sync();
+      }
+    }, 1 * HOUR);
+  }
+
+  setBusy() {
+    console.log('setBusy');
+    this.led.on();
+  }
+
+  setFree() {
+    console.log('setFree');
+    this.led.off();
+  }
+
+  sync() {
+    // Only sync now & upcoming events
+    // call google calendar sync
+    console.log('sync');
+  }
 }
+
+board.on("ready", function() {
+  // Initialize controller
+  const controller = new MainController(DEFAULT_OPTIONS);
+
+  // Allow controls in REPL
+  this.repl.inject({
+    _controller: controller,
+    sync: controller.sync,
+    setBusy: controller.setBusy,
+    setFree: controller.setFree,
+  });
+});
