@@ -1,5 +1,6 @@
 const moment = require('moment');
 const {listEvents} = require('./lib/calendar');
+const {inTimeRange, testTimeBlocksData} = require('./lib/utils');
 const five = require("johnny-five");
 const board = new five.Board();
 
@@ -9,29 +10,16 @@ const HOUR = MIN * 60;
 
 const DEFAULT_OPTIONS = {
   autoSync: true,
-  workStartTime: '8:00',
+  workStartTime: '08:00',
   workEndTime: '18:00',
-}
-
-const TEST_TIME_BLOCKS_DATA = [
-  {start: moment().add(5, 's'), end: moment().add(10, 's')},
-  {start: moment().add(15, 's'), end: moment().add(20, 's')}
-]
-
-function inTimeRange(startTime, endTime) {
-  const now = moment();
-  const start = moment(startTime);
-  const end = moment(endTime);
-  if (now >= start && now < end) {
-    // Happening now
-    return true;
-  }
-  return false;
+  interval: 1 * MIN,
+  autoSyncInterval: 2 * HOUR,
 }
 
 class MainController {
   constructor(options) {
-    this.timeBlocks = TEST_TIME_BLOCKS_DATA;
+    this.options = options;
+    this.timeBlocks = testTimeBlocksData;
     this.activeTimeBlock = false;
     this.led = new five.Led(13);
 
@@ -77,21 +65,20 @@ class MainController {
         this.activeTimeBlock = true;
         this.setBusy();
       }
-    }, 1 * SECOND);
+    }, this.options.interval);
   }
 
   autoSync() {
     this.sync();
     setInterval(() => {
-      const now = moment();
-      const start = moment(this.options.workStartTime, 'HH:mm');
-      const end = moment(this.options.workEndTime, 'HH:mm');
-
-      // Only allow interval to fire sync inside working hours.
-      if (now >= start && now < end) {
+      if (inTimeRange(
+        moment(this.options.workStartTime, 'HH:mm'),
+        moment(this.options.workEndTime, 'HH:mm')
+      )) {
+        // Only allow interval to fire sync inside working hours.
         this.sync();
       }
-    }, 1 * HOUR);
+    }, this.options.autoSyncInterval);
   }
 
   setBusy() {
@@ -105,6 +92,7 @@ class MainController {
   }
 
   sync() {
+    console.log('sync');
     // Only sync now & upcoming events
     // call google calendar sync
     listEvents((err, events) => {
