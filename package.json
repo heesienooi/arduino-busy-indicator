@@ -10,6 +10,7 @@
   "license": "ISC",
   "dependencies": {
     "ease-component": "^1.0.0",
+    "googleapis": "^30.0.0",
     "johnny-five": "^0.15.0",
     "temporal": "^0.6.0"
   }
