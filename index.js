@@ -1,4 +1,5 @@
 const moment = require('moment');
+const {listEvents} = require('./lib/calendar');
 const five = require("johnny-five");
 const board = new five.Board();
 
@@ -106,7 +107,10 @@ class MainController {
   sync() {
     // Only sync now & upcoming events
     // call google calendar sync
-    console.log('sync');
+    listEvents((err, events) => {
+      if (err) return console.error('Calendar API error: ', err);
+      this.timeBlocks = events;
+    })
   }
 }
 
