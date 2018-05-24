@@ -21,6 +21,7 @@ class MainController {
     this.options = options;
     this.timeBlocks = testTimeBlocksData;
     this.activeTimeBlock = false;
+
     this.led = new five.Led(13);
 
     if (options.autoSync) {
@@ -41,6 +42,15 @@ class MainController {
     setInterval(() => {
       console.log(++seconds);
 
+      // No blocks to process, return
+      if (this.timeBlocks.length <= 0) {
+        if (this.activeTimeBlock) {
+          this.activeTimeBlock = false;
+          this.setFree();
+        };
+        return;
+      };
+
       // Currently, timeblock activated
       if (this.activeTimeBlock) {
         const currentTimeBlock = this.timeBlocks[0];
@@ -54,9 +64,6 @@ class MainController {
         // Remove the timeblock
         this.timeBlocks.shift();
       }
-
-      // No blocks to process, return
-      if (this.timeBlocks.length <= 0) return;
 
       // Look for upcoming timeblock
       const upcomingTimeBlock = this.timeBlocks[0];
@@ -83,7 +90,7 @@ class MainController {
 
   setBusy() {
     console.log('setBusy');
-    this.led.on();
+    this.led.brightness(10);
   }
 
   setFree() {
