@@ -16,6 +16,31 @@ const DEFAULT_OPTIONS = {
   autoSyncInterval: 2 * HOUR,
 }
 
+class ServoController {
+  constructor() {
+    this._min = 10;
+    this._max = 168;
+    this._speed = 1000;
+    this._servo = new five.Servo({
+      pin: 10,
+      range: [this._min, this._max],
+      startAt: this._min,
+    });
+  }
+
+  min() {
+    this._servo.to(this._min, this._speed);
+  }
+
+  max() {
+    this._servo.to(this._max, this._speed);
+  }
+
+  to(degrees, speed = this.speed, steps) {
+    this._servo.to(degrees, speed, steps);
+  }
+}
+
 class MainController {
   constructor(options) {
     this.options = options;
@@ -23,6 +48,8 @@ class MainController {
     this.activeTimeBlock = false;
 
     this.led = new five.Led(13);
+    this.servo = new ServoController();
+    console.log(this.servo)
 
     if (options.autoSync) {
       this.autoSync();
@@ -91,11 +118,13 @@ class MainController {
   setBusy() {
     console.log('setBusy');
     this.led.brightness(10);
+    this.servo.max();
   }
 
   setFree() {
     console.log('setFree');
     this.led.off();
+    this.servo.min();
   }
 
   sync() {
