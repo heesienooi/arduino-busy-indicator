@@ -19,7 +19,7 @@ const DEFAULT_OPTIONS = {
 class ServoController {
   constructor() {
     this._min = 10;
-    this._max = 168;
+    this._max = 153;
     this._speed = 1000;
     this._servo = new five.Servo({
       pin: 10,
@@ -36,7 +36,7 @@ class ServoController {
     this._servo.to(this._max, this._speed);
   }
 
-  to(degrees, speed = this.speed, steps) {
+  to(degrees, speed = this.speed, steps = 0) {
     this._servo.to(degrees, speed, steps);
   }
 }
@@ -49,7 +49,6 @@ class MainController {
 
     this.led = new five.Led(13);
     this.servo = new ServoController();
-    console.log(this.servo)
 
     if (options.autoSync) {
       this.autoSync();
